@@ -1,5 +1,7 @@
+import numpy as np
 import os
 import re
+from sklearn.metrics.pairwise import cosine_similarity
 import time
 from typing import List, Dict
 from llama_index.core import VectorStoreIndex, Document, Settings, get_response_synthesizer
@@ -12,64 +14,56 @@ from config import MISTRAL_API_KEY
 from tools.utils import fetch_repo_files, fetch_file_content
 
 
-repo_indices_cache: Dict[str, VectorStoreIndex] = {}
 INCLUDE_FILE_EXTENSIONS = {".py", ".js", ".ts", ".json", ".md", ".txt"}
 
-def clean_line(line: str) -> str:
-    line = re.sub(r'^\s*\d+[\.\)]\s*', '', line)
-    line = line.strip(' `"\'')
+def safe_normalize(vec: np.ndarray) -> np.ndarray:
+    vec = np.nan_to_num(vec, nan=0.0, posinf=0.0, neginf=0.0)
+    norm = np.linalg.norm(vec)
+    if norm == 0 or np.isnan(norm) or np.isinf(norm):
+        return None
+    return vec / norm
 
-    return line.strip()
+def select_relevant_files_semantic(issue_description: str, file_paths: List[str]) -> List[str]:
+    embed_model = MistralAIEmbedding(model_name="codestral-embed", api_key=MISTRAL_API_KEY)
 
-def select_relevant_files_mistral(issue_description: str, file_paths: List[str]) -> List[str]:
+    issue_embedding = np.array(embed_model.get_text_embedding(issue_description), dtype=np.float64)
+    issue_embedding = safe_normalize(issue_embedding)
+    if issue_embedding is None:
+        print("[Warning] Issue description embedding invalid (zero or NaN norm). Returning empty list.")
+        return []
 
-    model = "devstral-small-latest"
-    client = Mistral(api_key=MISTRAL_API_KEY)
-    
-    system_prompt = '''
-    You are a code reasoning assistant. Given a GitHub issue description and a list of file paths from a codebase, return a list of top 5 files that are most relevant to solving or understanding the issue, based on naming, possible associations, or inferred logic.
+    scored_files = []
 
-    DO NOT RETURN ANYTHING ELSE. 
-    DO NOT RETURN ANY ADDITIONAL INFORMATION OR EXPLANATIONS. 
-    ONLY RETURN THE FILE PATHS, ONE PER LINE, WITHOUT ANY ADDITIONAL TEXT OR FORMATTING.
-    DO NOT HALLUCINATE.
-    '''
-    user_prompt = f"""Issue:
-{issue_description}
+    for path in file_paths:
+        try:
+            file_embedding = np.array(embed_model.get_text_embedding(path), dtype=np.float64)
+            file_embedding = safe_normalize(file_embedding)
+            if file_embedding is None:
+                print(f"[Warning] Skipping {path} due to zero or invalid embedding norm.")
+                continue
+            
+            with np.errstate(divide='ignore', invalid='ignore', over='ignore'):
+                score = cosine_similarity([issue_embedding], [file_embedding])[0][0]
 
-Files:
-{chr(10).join(file_paths)}
+            if np.isnan(score) or np.isinf(score):
+                print(f"[Warning] Skipping {path} due to invalid similarity score.")
+                continue
 
-Return the list of most relevant files (only exact paths)."""
+            scored_files.append((path, score))
+        except Exception as e:
+            print(f"[Warning] Skipping {path} due to error: {e}")
 
-    response = client.chat.complete(
-        model=model,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-    )
+    top_files = [f[0] for f in sorted(scored_files, key=lambda x: x[1], reverse=True)[:2]]
 
-    reply = response.choices[0].message.content if hasattr(response.choices[0].message, "content") else str(response.choices[0].message)
+    if "README.md" in file_paths:
+        if "README.md" not in top_files:
+            top_files.insert(0, "README.md")
 
-    lines = [line.strip() for line in reply.strip().splitlines()]
-    relevant_files = []
+    return top_files
 
-    for line in lines:
-        cleaned = clean_line(line)
-        if cleaned in file_paths:
-            relevant_files.append(cleaned)
-        # else:
-        #     print(f"[Warning] Ignored unexpected line from LLM response: {line}")
 
-    if not relevant_files:
-        print("[Info] No valid file paths found in LLM response, defaulting to all files.")
-        return file_paths
-    else:
-        # print("RELEVANT files selected by LLM:")
-        return relevant_files
-
-# print(select_relevant_files_mistral('''
+# print(select_relevant_files_semantic(
+# '''
 # 🛠️ Configuration Error: Placeholder values detected in host_config.json
 # This file still includes default placeholders like:
 
@@ -87,7 +81,7 @@ def build_repo_index(owner: str, repo: str, ref: str = "main", issue_description
     file_paths = fetch_repo_files(owner, repo, ref)
 
     if issue_description:
-        file_paths = select_relevant_files_mistral(issue_description, file_paths)
+        file_paths = select_relevant_files_semantic(issue_description, file_paths)
 
     documents = []
     for path in file_paths:
@@ -108,83 +102,51 @@ def build_repo_index(owner: str, repo: str, ref: str = "main", issue_description
     return index
 
 # print(build_repo_index("aditi-dsi", "EvalAI-Starters", "master", 
-# '''
-# 🛠️ Configuration Error: Placeholder values detected in host_config.json
-# This file still includes default placeholders like:
+    # '''
+    # 🛠️ Configuration Error: Placeholder values detected in host_config.json
+    # This file still includes default placeholders like:
 
-# <evalai_user_auth_token>
-# <host_team_pk>
-# <evalai_host_url>
-# Please replace them with real values to proceed.
-# '''))
-
-
-def get_repo_index(owner: str, repo: str, ref: str, issue_description: str) -> VectorStoreIndex:
-    cache_key = f"{owner}/{repo}:{hash(issue_description)}"
-    if cache_key in repo_indices_cache:
-        print(f"[Cache] Returning cached index for {cache_key}")
-        return repo_indices_cache[cache_key]
-
-    index = build_repo_index(owner, repo, ref, issue_description)
-    repo_indices_cache[cache_key] = index
-    return index
-
-
-# print(get_repo_index("aditi-dsi", "EvalAI-Starters", "master", 
-# '''
-# 🛠️ Configuration Error: Placeholder values detected in host_config.json
-# This file still includes default placeholders like:
-
-# <evalai_user_auth_token>
-# <host_team_pk>
-# <evalai_host_url>
-# Please replace them with real values to proceed.
-# '''))
+    # <evalai_user_auth_token>
+    # <host_team_pk>
+    # <evalai_host_url>
+    # Please replace them with real values to proceed.
+    # '''))
 
 
 def retrieve_context(owner: str, repo: str, ref: str, issue_description: str) -> List[str]:
-    index = get_repo_index(owner, repo, ref, issue_description)
+    print("Issue Description:", issue_description)
+    index = build_repo_index(owner, repo, ref, issue_description)
     Settings.llm = MistralAI(model="codestral-latest", api_key=MISTRAL_API_KEY)
     Settings.embed_model = MistralAIEmbedding(model_name="codestral-embed", api_key=MISTRAL_API_KEY)
-    retriever = index.as_retriever(similarity_top_k=5)
+    retriever = index.as_retriever(similarity_top_k=3)
+
     query_engine = RetrieverQueryEngine(
-    retriever=retriever,
-    response_synthesizer=get_response_synthesizer(),
-    node_postprocessors=[SimilarityPostprocessor(similarity_top_k=5)],
+        retriever=retriever,
+        response_synthesizer=get_response_synthesizer(),
+        node_postprocessors=[
+            SimilarityPostprocessor(similarity_top_k=3, similarity_cutoff=0.75)
+        ],
     )
-    query = f"Please give relevant information from the codebase about that can help to solve or understand this issue:{issue_description}"
+    query = (
+    f"Please give relevant information from the codebase that highly matches the keywords of this issue and useful for solving or understanding this issue:{issue_description}"
+    "STRICT RULES:\n"
+    "- ONLY use information available in the retriever context.\n"
+    "- DO NOT generate or assume any information outside the given context.\n"
+    f"- ONLY include context that is highly relevant and clearly useful for understanding or solving this issue: {issue_description}\n"
+    "- DO NOT include generic, loosely related, or unrelated content.\n"
+    )
+    print("query", query)
     response = query_engine.query(query)
     print(response)
-    return None
+    return response
 
-# index_tools = [
-#         {
-#         "type": "function",
-#         "function": {
-#             "name": "retrieve_context",
-#             "description": "Fetch relevant context from codebase for a GitHub issue",
-#             "parameters": {
-#                 "type": "object",
-#                 "properties": {
-#                     "owner": {
-#                         "type": "string",
-#                         "description": "The owner of the repository."
-#                     },
-#                     "repo": {
-#                         "type": "string",
-#                         "description": "The name of the repository."
-#                     },
-#                     "ref": {
-#                         "type": "string",
-#                         "description": "The branch or commit reference to index from."
-#                     },
-#                     "issue_description": {
-#                         "type": "string",
-#                         "description": "The description of the issue to retrieve context for."
-#                     }
-#                 },
-#                 "required": ["owner", "repo", "ref", "issue_description"]
-#             },
-#         },
-#     },
-# ]
+# print(retrieve_context("aditi-dsi", "EvalAI-Starters", "master",
+#     '''
+#     🛠️ Configuration Error: Placeholder values detected in host_config.json
+#     This file still includes default placeholders like:
+
+#     <evalai_user_auth_token>
+#     <host_team_pk>
+#     <evalai_host_url>
+#     Please replace them with real values to proceed.
+#     '''))

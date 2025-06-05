@@ -63,7 +63,7 @@ tools = [
                     },
                     "issue_description": {
                         "type": "string",
-                        "description": "The description of the issue to retrieve context for."
+                        "description": "The exact issue description from the issue the agent is resolving. Must be passed without rephrasing."
                     }
                 },
                 "required": ["owner", "repo", "ref", "issue_description"]

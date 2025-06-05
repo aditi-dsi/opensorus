@@ -23,11 +23,11 @@ def get_issue_details(owner, repo, issue_num):
     }
     response = github_request("GET", url, headers=headers)
     if response.status_code == 200:
-        return response.json()
+        return response.json().get("body")
     else:
         raise Exception(f"Failed to fetch issue: {response.status_code} {response.text}")
 
-# print(get_issue_details("aditi-dsi", "testing-cryptope", "3"))
+# print(get_issue_details("aditi-dsi", "testing-cryptope", "4"))
 
 def post_comment(owner, repo, issue_num, comment_body):
     installation_id = get_installation_id(owner, repo)
