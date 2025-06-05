@@ -1,4 +1,3 @@
-import base64
 import os
 import re
 import time
@@ -9,54 +8,12 @@ from llama_index.core.postprocessor import SimilarityPostprocessor
 from llama_index.embeddings.mistralai import MistralAIEmbedding
 from llama_index.llms.mistralai import MistralAI
 from mistralai import Mistral
-from agent.function_calling import github_request, get_installation_id, get_installation_token
 from config import MISTRAL_API_KEY
+from tools.utils import fetch_repo_files, fetch_file_content
+
 
 repo_indices_cache: Dict[str, VectorStoreIndex] = {}
 INCLUDE_FILE_EXTENSIONS = {".py", ".js", ".ts", ".json", ".md", ".txt"}
-
-def fetch_repo_files(owner: str, repo: str, ref: str = "main") -> List[str]:
-    """
-    Lists all files in the repository by recursively fetching the Git tree from GitHub API.
-    Returns a list of file paths.
-    """
-    installation_id = get_installation_id(owner, repo)
-    token = get_installation_token(installation_id)
-    url = f"https://api.github.com/repos/{owner}/{repo}/git/trees/{ref}?recursive=1"
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Accept": "application/vnd.github.v3+json"
-    }
-    response = github_request("GET", url, headers=headers)
-    if response.status_code != 200:
-        raise Exception(f"Failed to list repository files: {response.status_code} {response.text}")
-
-    tree = response.json().get("tree", [])
-    file_paths = [item["path"] for item in tree if item["type"] == "blob"]
-    return file_paths
-
-# print(fetch_repo_files("aditi-dsi", "EvalAI-Starters", "master"))
-
-def fetch_file_content(owner: str, repo: str, path: str, ref: str = "main") -> str:
-    """
-    Fetches the content of a file from the GitHub repository.
-    """
-    installation_id = get_installation_id(owner, repo)
-    token = get_installation_token(installation_id)
-    url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}?ref={ref}"
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Accept": "application/vnd.github.v3+json"
-    }
-    response = github_request("GET", url, headers=headers)
-    if response.status_code != 200:
-        raise Exception(f"Failed to fetch file content {path}: {response.status_code} {response.text}")
-
-    content_json = response.json()
-    content = base64.b64decode(content_json["content"]).decode("utf-8", errors="ignore")
-    return content
-
-# print(fetch_file_content("aditi-dsi", "testing-cryptope", "frontend/src/lib/buildSwap.ts", "main"))
 
 def clean_line(line: str) -> str:
     line = re.sub(r'^\s*\d+[\.\)]\s*', '', line)

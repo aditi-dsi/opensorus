@@ -1,0 +1,5 @@
+llama_index==0.12.40
+mistralai==1.8.1
+PyJWT==2.10.1
+python-dotenv==1.1.0
+requests==2.32.3
