@@ -16,9 +16,10 @@ iface = gr.Interface(
         gr.Textbox(label="Branch Name", placeholder="main or dev or feature/xyz")
     ],
     outputs=gr.Textbox(label="Agent Response"),
-    title="GitHub Issue AI Agent",
-    description="Enter a GitHub issue URL you want to assign to OpenSorus and the branch to refer for code context (default is 'main'). The agent will fetch relevant context and respond."
+    title="OpenSorus – AI Copilot for Timely Dev Support in GitHub Issues",
+    description="Running short on time? Just paste the URL of the issue and let the Agent take care of the rest!",
 )
 
 if __name__ == "__main__":
     iface.launch()
+
