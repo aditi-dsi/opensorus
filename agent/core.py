@@ -22,7 +22,7 @@ api_key = MISTRAL_API_KEY
 model = "devstral-small-latest"
 client = Mistral(api_key=api_key)
 
-def run_agent(issue_url: str, branch_name: str = "main") -> str:
+async def run_agent(issue_url: str, branch_name: str = "main") -> str:
     """
     Run the agent workflow on a given GitHub issue URL.
     """

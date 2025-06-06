@@ -1,3 +1,4 @@
+import asyncio
 import base64
 from datetime import datetime, timezone, timedelta
 import jwt
@@ -93,7 +94,7 @@ def get_installation_token(installation_id):
 
 # print(get_installation_token(69452220))
 
-def fetch_repo_files(owner: str, repo: str, ref: str = "main") -> List[str]:
+async def fetch_repo_files(owner: str, repo: str, ref: str = "main") -> List[str]:
     """
     Lists all files in the repository by recursively fetching the Git tree from GitHub API.
     Returns a list of file paths.
@@ -105,7 +106,8 @@ def fetch_repo_files(owner: str, repo: str, ref: str = "main") -> List[str]:
         "Authorization": f"Bearer {token}",
         "Accept": "application/vnd.github.v3+json"
     }
-    response = github_request("GET", url, headers=headers)
+
+    response = await asyncio.to_thread(github_request, "GET", url, headers=headers)
     if response.status_code != 200:
         raise Exception(f"Failed to list repository files: {response.status_code} {response.text}")
 
@@ -115,18 +117,20 @@ def fetch_repo_files(owner: str, repo: str, ref: str = "main") -> List[str]:
 
 # print(fetch_repo_files("aditi-dsi", "EvalAI-Starters", "master"))
 
-def fetch_file_content(owner: str, repo: str, path: str, ref: str = "main") -> str:
+async def fetch_file_content(owner: str, repo: str, path: str, ref: str = "main") -> str:
     """
     Fetches the content of a file from the GitHub repository.
     """
     installation_id = get_installation_id(owner, repo)
-    token = get_installation_token(installation_id)
+    token = await asyncio.to_thread(get_installation_token, installation_id)
+
     url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}?ref={ref}"
     headers = {
         "Authorization": f"Bearer {token}",
         "Accept": "application/vnd.github.v3+json"
     }
-    response = github_request("GET", url, headers=headers)
+
+    response = await asyncio.to_thread(github_request, "GET", url, headers=headers)
     if response.status_code != 200:
         raise Exception(f"Failed to fetch file content {path}: {response.status_code} {response.text}")
 
