@@ -11,17 +11,19 @@ jobs:
     steps:
       - name: Pull and Run in Conda Environment
         run: |
-          cd /home/powerranger/Desktop/aditi/opensorus
-          git pull origin main
 
-          # Setup conda
+          rm -rf /home/powerranger/Desktop/aditi/opensorus
+
+          cd /home/powerranger/Desktop/aditi
+          git clone https://github.com/aditi-dsi/opensorus.git
+
+          cd /home/powerranger/Desktop/aditi/opensorus
+
           source ~/anaconda3/etc/profile.d/conda.sh
           conda activate aditi_deploy
 
-          # Install dependencies
           pip install -r requirements.txt
 
           chmod +x runner.sh
           
-          # Restart the systemd service
           sudo bash runner.sh
