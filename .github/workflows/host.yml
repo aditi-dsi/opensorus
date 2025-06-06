@@ -15,6 +15,7 @@ jobs:
           git pull origin main
 
           # Setup conda
+          source ~/anaconda3/etc/profile.d/conda.sh
           conda activate aditi_deploy
 
           # Install dependencies
