@@ -7,8 +7,8 @@ app = FastAPI()
 async def check_payload(payload: dict):
     if "action" in payload:
         if payload["action"] == "created":
-            if payload["comment"]["body"] == "@opensorus" or payload["comment"]["body"] == "@OpenSorus":
-                
+            comment_body = payload["comment"]["body"] if "comment" in payload else ""
+            if "@opensorus" in comment_body.lower():
                 print("This issue is assigned to OpenSorus Agent.")
                 issue_url = payload["issue"]["url"]
                 print("URL", issue_url)
