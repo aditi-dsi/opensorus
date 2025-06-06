@@ -23,4 +23,4 @@ async def check_payload(payload: dict):
     
 @app.get('/health')
 def health_check():
-    return {"status": "Hello World!, I am alive!!"}
+    return {"status": "Hello World!, I am alive!"}
