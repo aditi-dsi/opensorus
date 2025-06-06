@@ -1,0 +1,24 @@
+name: Deploy Python App via Conda on Local Runner
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Pull and Run in Conda Environment
+        run: |
+          cd /home/powerranger/Desktop/aditi/opensorus
+          git pull origin main
+
+          # Setup conda
+          conda activate aditi_deploy
+
+          # Install dependencies
+          pip install -r requirements.txt
+
+          # Restart the systemd service
+          sudo bash runner.sh

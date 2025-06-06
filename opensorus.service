@@ -1,0 +1,15 @@
+[Unit]
+Description=Open Sorus
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/powerranger/Desktop/aditi/opensorus
+ExecStart=/home/powerranger/anaconda3/envs/aditi_deploy/bin/uvicorn server.main:app --host 0.0.0.0 --port 8080 --reload
+Restart=always
+RestartSec=5
+User=powerranger
+Environment="PYTHONUNBUFFERED=1"
+
+[Install]
+WantedBy=multi-user.target
