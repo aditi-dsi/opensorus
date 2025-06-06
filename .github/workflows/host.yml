@@ -19,6 +19,8 @@ jobs:
 
           cd /home/powerranger/Desktop/aditi/opensorus
 
+          cp /home/powerranger/Desktop/aditi/.env /home/powerranger/Desktop/aditi/opensorus/.env
+
           source ~/anaconda3/etc/profile.d/conda.sh
           conda activate aditi_deploy
 
