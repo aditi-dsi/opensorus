@@ -1,11 +1,11 @@
-echo "Deploying Proxy WebSocket service..."
+echo "Deploying Webhook service..."
 
-sudo cp opensorus.service /etc/systemd/system/
+cp opensorus.service /etc/systemd/system/
 
-sudo systemctl daemon-reexec
-sudo systemctl daemon-reload
+systemctl daemon-reexec
+systemctl daemon-reload
 
-sudo systemctl enable opensorus.service
-sudo systemctl start opensorus.service
+systemctl enable opensorus.service
+systemctl start opensorus.service
 
-sudo systemctl status opensorus.service
+systemctl status opensorus.service
