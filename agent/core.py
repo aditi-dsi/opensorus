@@ -1,4 +1,3 @@
-import asyncio
 import json
 from mistralai import Mistral
 from agent.agent_config import prompts
@@ -54,16 +53,15 @@ async def run_agent(issue_url: str, branch_name: str = "main") -> str:
                 function_name = tool_call.function.name
                 function_params = json.loads(tool_call.function.arguments)
                 if function_name in allowed_tools:
+                    function_result = names_to_functions[function_name](**function_params)
                     print(f"Agent is calling tool: {function_name}")
                     tool_calls += 1
 
-                    if function_name == "get_issue_details":
-                        function_result = names_to_functions[function_name](**function_params)
-                        if isinstance(function_result, dict):
-                            issue_title = function_result.get("title")
-                            issue_body = function_result.get("body")
-                            issue_description_cache = issue_title + "\n" + issue_body if issue_title or issue_body else None
-                            print("ISSUE DESCRIPTION CACHE ✨:", issue_description_cache)
+                    if function_name == "get_issue_details" and isinstance(function_result, dict):
+                        issue_title = function_result.get("title")
+                        issue_body = function_result.get("body")
+                        issue_description_cache = issue_title + "\n" + issue_body if issue_title or issue_body else None
+                        print("ISSUE DESCRIPTION CACHE ✨:", issue_description_cache)
 
                     if function_name == "retrieve_context":
                         if "issue_description" in function_params:
@@ -73,11 +71,7 @@ async def run_agent(issue_url: str, branch_name: str = "main") -> str:
                             ):
                                 print("🔁 Overriding incorrect issue_description with correct one from cache.")
                                 function_params["issue_description"] = issue_description_cache
-                                function = names_to_functions[function_name]
-                                if asyncio.iscoroutinefunction(function):
-                                    function_result = await function(**function_params)
-                                else:
-                                    function_result = function(**function_params)
+                                function_result = names_to_functions[function_name](**function_params)
 
                     messages.append({
                         "role": "tool",
@@ -86,7 +80,6 @@ async def run_agent(issue_url: str, branch_name: str = "main") -> str:
                     })
 
                     if function_name == "post_comment":
-                        function_result = names_to_functions[function_name](**function_params)
                         print("OpenSorus (final): ✅ Comment posted successfully. No further action needed.")
                         return "Task Completed"
 
