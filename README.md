@@ -19,8 +19,6 @@ Once installed and triggered on a GitHub issue (either via @mention or through t
 
 - Posts the response back as a GitHub comment.
 
-> Please checkout the [OpenSorus GitHub repo](https://github.com/aditi-dsi/opensorus) for complete Webhook + GitHub Actions implementation code.
-
 ## Goal
 Open source projects often get overwhelmed with open issues, thanks to their inclusive and collaborative nature. But that openness should feel empowering, not exhausting, for all, including maintainers & contributors.
 
@@ -66,6 +64,8 @@ Here’s the tech stack that made it all possible:
 🗂️ Indexing, Embeddings storage & retrieval: LlamaIndex 🦙
 
 🔎 Querying Context: Codestral (via Mistral API 🧡) + LlamaIndex 🦙
+
+🧱 Infra Provider: Modal Labs
 
 🛠️ GitHub Integration:	GitHub REST API + GitHub Actions
 
